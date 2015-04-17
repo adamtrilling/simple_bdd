@@ -18,11 +18,38 @@ Or install it yourself as:
 
     $ gem install simple_bdd
 
+### Integration with RSpec
+
+To use SimpleBDD in your specs, simply add the following line to your spec helper:
+
+``` ruby
+require 'simple_bdd/rspec'
+```
+
+Or, if you want to have more control, you can do this instead:
+
+``` ruby
+require 'simple_bdd'
+
+RSpec.configure do |config|
+  config.include SimpleBdd
+end
+```
+
+By default, SimpleBDD marks specs pending on missing step implementations.
+You can change this behavior to raise an error instead in the spec helper:
+
+``` ruby
+RSpec.configure do |config|
+  config.raise_error_on_missing_step_implementation = true
+end
+```
+
 ## Usage
 
 ### Standard Usage
 
-The following will call commented method in scope of the current class or module.  (Every RSpec `describe` block is an anonymous class.)
+The following will call commented method in scope of the current class or module:
 
 ``` ruby
 [Gg]iven "Some state" # calls some_state
@@ -31,6 +58,8 @@ The following will call commented method in scope of the current class or module
 [Bb]ut "this other thing still happens" # calls this_other_thing_still_happens
 [Aa]nd "this other side effect happens" # calls this_other_side_effect_happens
 ```
+
+Step definitions can be shared among multiple tests by repeating the same string, even with a different initial word.  In RSpec, describe, context, feature, and scenario each create an anonymous class which define the scope for your step definitions.
 
 ## Behavior Usage
 
@@ -59,30 +88,93 @@ Any of the following names can be substituted for `behavior` above:
 * `by`
 * `it_also`
 
-## RSpec
+## Examples
 
-To use SimpleBDD in your tests, simply add the following line to your spec helper:
+### Unit testing
 
-``` ruby
-require 'simple_bdd/rspec'
-```
-
-Or, if you want to have more control, you can do this instead:
+Simple BDD can be used to describe the overall behavior of a method or class.  Say you have a class that acts as a four-function calculator, with methods to add, subtract, multiply, divide, and retrieve the previous result.  You could write your test using RSpec and Simple BDD as follows:
 
 ``` ruby
-require 'simple_bdd'
+describe 'Basic Math' do
+  context 'I add two numbers' do
+    Given 'I have a BasicMath'
+    And 'I have two numbers'
+    When 'I add the numbers'
+    Then 'I get the sum'
+  end
 
-RSpec.configure do |config|
-  config.include SimpleBdd
+  context 'I subtract two numbers' do
+    Given 'I have a BasicMath'
+    And 'I have two numbers'
+    When 'I subtract the numbers'
+    Then 'I get the difference'
+  end
+
+  # shared by both contexts
+  def i_have_a_basicmath
+    @basic_math = BasicMath.new
+  end
+
+  # shared by both contexts
+  def i_have_two_numbers
+    @first_number = 7
+    @second_number = 4
+  end
+
+  def i_add_the_numbers
+    @basic_math.add(@first_number, @second_number)
+  end
+
+  def i_get_the_sum
+    expect(@basic_math.result).to eq 11
+  end
+
+  def i_subtract_the_numbers
+    @basic_math.subtract(@first_number, @second_number)
+  end
+
+  def i_get_the_difference
+    expect(@basic_math.result).to eq 3
+  end
 end
 ```
 
-By default, SimpleBDD marks specs pending on missing step implementations.
-You can change this behavior to raise an error instead in the spec helper:
+### Feature testing
+
+One of the most common uses for behavior-driven development is integration testing of an entire application.  When used with RSpec, Simple BDD integrates seamlessly with Capybara to provide a friendly syntax for feature specs:
 
 ``` ruby
-RSpec.configure do |config|
-  config.raise_error_on_missing_step_implementation = true
+feature 'Authentication' do
+  scenario 'I log in' do
+    Given 'I have an account'
+    When 'I visit the login screen'
+    And 'I log in'
+    Then 'I am shown to be logged in'
+  end
+
+  let(:user) { User.create(username: 'simple_bdd', password: 'password') }
+
+  def i_have_an_account
+    user
+  end
+
+  def i_visit_the_login_screen
+    visit '/sessions/new'
+  end
+
+  def i_log_in
+    within("#session") do
+      fill_in 'Username', :with => 'simple_bdd'
+      fill_in 'Password', :with => 'password'
+    end
+    click_button 'Log in'
+  end
+
+  def i_am_shown_to_be_logged_in
+    within('#header') do
+      expect(page).to have_text('Hello, simple_bdd')
+    end
+  end
 end
 ```
 
